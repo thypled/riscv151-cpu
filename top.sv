@@ -75,6 +75,16 @@ module top #(
         .stall        (mem_stall)
     );
 
+    IDU #() idu(
+        .clk (clk),
+        .reset (reset),
+        .r_reg1 (r_reg1),
+        .r_reg2 (r_reg2),
+        .w_reg (w_reg),
+        .wdata (wdata),
+        .rdata1 (rdata1),
+    )
+
     Memory151 #(
         .USE_NO_CACHE  (USE_NO_CACHE),
         .IMEM_INIT_FILE(IMEM_INIT_FILE)
