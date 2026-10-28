@@ -19,18 +19,18 @@ module regfile #(
             foreach (registers[i]) begin
                 registers[i] <= (i == 0) ? 32'b0 : reset_register_value;
             end
-            rdata1 <= 32'b0;
-            rdata2 <= 32'b0;
         end else begin
             if (reg_write && (waddr != 5'd0)) begin
                 registers[waddr] <= wdata;
             end
 
-            rdata1 <= (raddr1 == 5'd0) ? 32'b0 : registers[raddr1];
-            rdata2 <= (raddr2 == 5'd0) ? 32'b0 : registers[raddr2];
-
             registers[0] <= 32'b0;
         end
+    end
+
+    always_comb begin
+        rdata1 = (raddr1 == 5'd0) ? 32'b0 : registers[raddr1];
+        rdata2 = (raddr2 == 5'd0) ? 32'b0 : registers[raddr2];
     end
 
 endmodule

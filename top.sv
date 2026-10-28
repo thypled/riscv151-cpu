@@ -33,13 +33,16 @@ module top #(
         logic [31:0] rdata1;
         logic [31:0] rdata2;
         logic [31:0] imm;
+        logic [6:0]  opcode;
+        // ALUdec consumes opcode, funct[2:0], and funct[3].
         logic [3:0]  funct;
         logic [4:0]  rd;
-        logic [2:0]  ctrl_ex;
+        logic        alu_src_imm;
         logic [2:0]  ctrl_mem;
         logic [1:0]  ctrl_wb;
     } id_ex_reg;
-    /* EX: ALUOp[1:0], ALUSrc.
+    /* EX: alu_src_imm selects rs2 or the immediate as ALU operand B.
+       ALUdec generates the final four-bit ALU control from opcode and funct.
        M: Branch, MemRead, MemWrite.
        WB: RegWrite, MemtoReg. */
 
@@ -67,6 +70,15 @@ module top #(
     logic        mem_stall;
     logic [31:0] request_PC;
 
+    if_id_reg reg1;
+    logic     reg1_valid;
+
+    logic [4:0] id_rs1;
+    logic [4:0] id_rs2;
+    id_ex_reg   reg2_d;
+    id_ex_reg   reg2;
+    logic       reg2_valid;
+
     IFU #(.RESET_PC(RESET_PC)) ifu (
         .clk          (clk),
         .reset        (reset),
@@ -75,15 +87,34 @@ module top #(
         .stall        (mem_stall)
     );
 
-    IDU #() idu(
-        .clk (clk),
-        .reset (reset),
-        .r_reg1 (r_reg1),
-        .r_reg2 (r_reg2),
-        .w_reg (w_reg),
-        .wdata (wdata),
-        .rdata1 (rdata1),
-    )
+    // Decode and register reads both complete within the ID cycle.
+    IDU idu (
+        .inst        (reg1.inst),
+        .rs1         (id_rs1),
+        .rs2         (id_rs2),
+        .imm         (reg2_d.imm),
+        .opcode      (reg2_d.opcode),
+        .funct       (reg2_d.funct),
+        .rd          (reg2_d.rd),
+        .alu_src_imm (reg2_d.alu_src_imm),
+        .ctrl_mem    (reg2_d.ctrl_mem),
+        .ctrl_wb     (reg2_d.ctrl_wb)
+    );
+
+    regfile rf (
+        .clk       (clk),
+        .reset     (reset),
+        .raddr1    (id_rs1),
+        .raddr2    (id_rs2),
+        .rdata1    (reg2_d.rdata1),
+        .rdata2    (reg2_d.rdata2),
+        // WB is not implemented yet; keep the write port disabled.
+        .reg_write (1'b0),
+        .waddr     (5'b0),
+        .wdata     (32'b0)
+    );
+
+    assign reg2_d.PC = reg1.PC;
 
     Memory151 #(
         .USE_NO_CACHE  (USE_NO_CACHE),
@@ -124,9 +155,6 @@ module top #(
             request_PC <= fetch_addr;
     end
 
-    if_id_reg reg1;
-    logic     reg1_valid;
-
     always_ff @(posedge clk or negedge reset) begin
         if (!reset) begin
             reg1 <= '0;
@@ -137,6 +165,21 @@ module top #(
                 reg1.inst <= fetch_data;
                 reg1.PC   <= request_PC;
             end
+        end
+    end
+
+    // Capture one instruction's PC, operands and controls at the same boundary.
+    // Basic valid propagation only; hazard stalls and branch flushes come later.
+    always_ff @(posedge clk or negedge reset) begin
+        if (!reset) begin
+            reg2 <= '0;
+            reg2_valid <= 1'b0;
+        end else begin
+            reg2_valid <= reg1_valid;
+            if (reg1_valid)
+                reg2 <= reg2_d;
+            else
+                reg2 <= '0;
         end
     end
 endmodule
