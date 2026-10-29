@@ -19,6 +19,7 @@ module Memory151 #(
   input         logic icache_re,
   input  logic [31:0] dcache_din,
   output logic [31:0] dcache_dout,
+  output logic        dcache_resp_valid,
   output logic [31:0] icache_dout,
   output logic        icache_resp_valid,
   output        logic stall,
@@ -79,7 +80,7 @@ no_cache_mem dcache (
   .cpu_req_addr(dcache_addr[31:2]),
   .cpu_req_data(dcache_din),
   .cpu_req_write(dcache_we),
-  .cpu_resp_valid(),
+  .cpu_resp_valid(dcache_resp_valid),
   .cpu_resp_data(dcache_dout)
 );
 assign stall =  ~i_stall_n || ~d_stall_n;
@@ -124,7 +125,7 @@ cache dcache (
   .cpu_req_addr(dcache_addr[31:2]),
   .cpu_req_data(dcache_din),
   .cpu_req_write(dcache_we),
-  .cpu_resp_valid(),
+  .cpu_resp_valid(dcache_resp_valid),
   .cpu_resp_data(dcache_dout),
   .mem_req_valid(dc_mem_req_valid),
   .mem_req_ready(dc_mem_req_ready),

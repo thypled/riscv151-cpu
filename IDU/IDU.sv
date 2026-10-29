@@ -1,8 +1,15 @@
 module IDU (
+    input  logic        clk,
+    input  logic        reset,  // Active-low reset for the register file.
     input  logic [31:0] inst,
 
-    output logic [4:0]  rs1,
-    output logic [4:0]  rs2,
+    // WB writes the register file independently of the instruction being decoded.
+    input  logic        wb_reg_write,
+    input  logic [4:0]  wb_rd,
+    input  logic [31:0] wb_data,
+
+    output logic [31:0] rdata1,
+    output logic [31:0] rdata2,
     output logic [31:0] imm,
     output logic [6:0]  opcode,
     // Raw instruction fields for ALUdec: {inst[30], inst[14:12]}.
@@ -12,7 +19,9 @@ module IDU (
     output logic        alu_src_imm,
     output logic [2:0]  ctrl_mem,
     // {RegWrite, MemtoReg}
-    output logic [1:0]  ctrl_wb
+    output logic [1:0]  ctrl_wb,
+    output logic [4:0] rs1,
+    output logic [4:0] rs2
 );
 
     localparam logic [6:0] OPC_RTYPE  = 7'b0110011;
@@ -26,6 +35,18 @@ module IDU (
     localparam logic [6:0] OPC_JAL    = 7'b1101111;
 
     assign opcode = inst[6:0];
+
+    regfile rf (
+        .clk       (clk),
+        .reset     (reset),
+        .reg_write (wb_reg_write),
+        .raddr1    (rs1),
+        .raddr2    (rs2),
+        .waddr     (wb_rd),
+        .wdata     (wb_data),
+        .rdata1    (rdata1),
+        .rdata2    (rdata2)
+    );
 
     // Decode within the ID cycle; top owns the ID/EX pipeline registers.
     always_comb begin
